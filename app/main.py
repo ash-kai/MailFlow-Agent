@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from loaders.gmail import GmailLoader
 from core.chains import generate_digest
 from core.schema import BaseEmail, EmailLoader

@@ -1,10 +1,7 @@
 import os
 import msal
 import requests
-from dotenv import load_dotenv
 from core.schema import BaseEmail
-
-load_dotenv()
 
 CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID")
 TENANT_ID = os.getenv("OUTLOOK_TENANT_ID", "common")

@@ -9,7 +9,8 @@ model_name = os.getenv("GOOGLE_LLM_MODEL", "gemini-3-flash-preview")
 def generate_digest(emails: list[BaseEmail]) -> DailyDigest:
     llm = ChatGoogleGenerativeAI(
         model=model_name,
-        temperature=0
+        temperature=0,
+        google_api_key=os.getenv("GOOGLE_API_KEY")
         )
     
     structured_llm = llm.with_structured_output(DailyDigest)
