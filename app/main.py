@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from loaders.gmail import GmailLoader
+from loaders.outlook import OutlookLoader
 from core.chains import generate_digest
 from core.schema import BaseEmail, EmailLoader
 from typing import List
@@ -9,7 +10,8 @@ from typing import List
 def run_agent():
     # We explicitly type hint this list with our Protocol
     loaders: List[EmailLoader] = [
-        GmailLoader()
+        GmailLoader(),
+        OutlookLoader()
     ]
     
     all_emails: List[BaseEmail] = []

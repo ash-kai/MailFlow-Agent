@@ -5,12 +5,13 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from core.schema import BaseEmail
+from core.persistence import TokenStore
 
 class GmailLoader:
     SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
     def __init__(self, token_path: str = 'token.json', credentials_path: str = 'credentials.json'):
-        self.token_path = token_path
+        self.store = TokenStore(token_path)
         self.credentials_path = credentials_path
         self._service = None
 
@@ -20,11 +21,11 @@ class GmailLoader:
             return self._service
 
         creds = None
-        # Load existing tokens from the specified file path
-        if os.path.exists(self.token_path):
-            creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
+        if self.store.exists():
+            # Note: Credentials.from_authorized_user_file still takes a path, 
+            # but we use the store's resolved path.
+            creds = Credentials.from_authorized_user_file(self.store.filepath, self.SCOPES)
         
-        # If no valid credentials, handle refresh or new login
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
@@ -32,9 +33,7 @@ class GmailLoader:
                 flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, self.SCOPES)
                 creds = flow.run_local_server(port=0)
             
-            # Persist the credentials for the next run
-            with open(self.token_path, 'w') as token_file:
-                token_file.write(creds.to_json())
+            self.store.write(creds.to_json())
                 
         self._service = build('gmail', 'v1', credentials=creds)
         return self._service

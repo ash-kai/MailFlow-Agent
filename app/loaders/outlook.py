@@ -2,10 +2,11 @@ import os
 import msal
 import requests
 from core.schema import BaseEmail
+from core.persistence import TokenStore
 
 class OutlookLoader:
     def __init__(self, token_path: str = 'outlook_token.json'):
-        self.token_path = token_path
+        self.store = TokenStore(token_path)
         self.client_id = os.getenv("OUTLOOK_CLIENT_ID")
         self.tenant_id = os.getenv("OUTLOOK_TENANT_ID", "common")
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
@@ -19,9 +20,8 @@ class OutlookLoader:
             return self._app
 
         self._cache = msal.SerializableTokenCache()
-        if os.path.exists(self.token_path):
-            with open(self.token_path, "r") as f:
-                self._cache.deserialize(f.read())
+        if self.store.exists():
+            self._cache.deserialize(self.store.read())
 
         self._app = msal.PublicClientApplication(
             self.client_id,
@@ -44,8 +44,7 @@ class OutlookLoader:
 
         if result and "access_token" in result:
             if self._cache and self._cache.has_state_changed:
-                with open(self.token_path, "w") as f:
-                    f.write(self._cache.serialize())
+                self.store.write(self._cache.serialize())
             return result["access_token"]
         
         return None
