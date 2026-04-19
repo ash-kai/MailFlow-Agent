@@ -3,47 +3,56 @@ import msal
 import requests
 from core.schema import BaseEmail
 
-CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID")
-TENANT_ID = os.getenv("OUTLOOK_TENANT_ID", "common")
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+class OutlookLoader:
+    def __init__(self, token_path: str = 'outlook_token.json'):
+        self.token_path = token_path
+        self.client_id = os.getenv("OUTLOOK_CLIENT_ID")
+        self.tenant_id = os.getenv("OUTLOOK_TENANT_ID", "common")
+        self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
+        self.scopes = ["Mail.Read", "User.Read"]
+        self._app = None
+        self._cache = None
 
-# The scope for Microsoft Graph API to read emails
-SCOPES = ["Mail.Read", "User.Read"]
+    def _get_app(self):
+        """Initializes the MSAL application with a persistent token cache."""
+        if self._app:
+            return self._app
 
-def get_access_token():
-    app = msal.PublicClientApplication(
-        CLIENT_ID,
-        authority=AUTHORITY
-    )
-    
-    # Attempt to get token from local cache first
-    accounts = app.get_accounts()
-    if accounts:
-        print("Found account in cache, attempting silent token acquisition...")
-        result = app.acquire_token_silent(SCOPES, account=accounts[0])
-        if result:
-            return result.get("access_token")
+        self._cache = msal.SerializableTokenCache()
+        if os.path.exists(self.token_path):
+            with open(self.token_path, "r") as f:
+                self._cache.deserialize(f.read())
 
-    # If no cache or silent fail, open the browser
-    print("No valid token found. Opening browser for interactive login...")
-    result = app.acquire_token_interactive(
-    	scopes=SCOPES,
-    	port=0 # Let the OS pick a free port for the redirect
-    )
+        self._app = msal.PublicClientApplication(
+            self.client_id,
+            authority=self.authority,
+            token_cache=self._cache
+        )
+        return self._app
 
-    if "access_token" in result:
-        return result["access_token"]
-    else:
-        # Debugging the error if it fails
-        print(f"Auth Error: {result.get('error')}")
-        print(f"Description: {result.get('error_description')}")
+    def _get_access_token(self):
+        """Attempts silent auth from cache, falling back to interactive login."""
+        app = self._get_app()
+        accounts = app.get_accounts()
+        result = None
+
+        if accounts:
+            result = app.acquire_token_silent(self.scopes, account=accounts[0])
+
+        if not result:
+            result = app.acquire_token_interactive(scopes=self.scopes, port=0)
+
+        if result and "access_token" in result:
+            if self._cache and self._cache.has_state_changed:
+                with open(self.token_path, "w") as f:
+                    f.write(self._cache.serialize())
+            return result["access_token"]
+        
         return None
 
-
-class OutlookLoader:
     def fetch_emails(self, limit: int = 10) -> list[BaseEmail]:
         """Fetches the latest emails from the Graph API."""
-        token = get_access_token()
+        token = self._get_access_token()
         if not token:
             return []
 
