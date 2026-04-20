@@ -5,7 +5,7 @@ class EmailInsight(BaseModel):
     subject: str = Field(..., description="Summarized subject of the email")
     sender: str = Field(..., description="Who sent the email")
     priority: str = Field(..., description="1-10 scale of importance")
-    category: str =     Field(..., description="Work, personal, newsletter or urgent etc.")
+    category: str = Field(..., description="Work, personal, newsletter or urgent etc.")
     action_item: str = Field(..., description="A brief description of what needs to be done, if anything")
     
 class DailyDigest(BaseModel):
@@ -19,9 +19,11 @@ class BaseEmail(BaseModel):
     body: str = Field(..., description="A preview or snippet of the email body")
 
 class EmailLoader(Protocol):
-    def fetch_emails(self, limit: int = 10) -> List[BaseEmail]:
+    def fetch_emails(self, limit: int = 10) -> list[BaseEmail]:
         """Interface for email fetching logic."""
+        ...
 
 class DigestAnalyst(Protocol):
     def generate(self, email_data: str) -> DailyDigest:
         """Interface for LLM analysis logic."""
+        ...
