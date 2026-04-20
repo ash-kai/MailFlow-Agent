@@ -21,3 +21,7 @@ class BaseEmail(BaseModel):
 class EmailLoader(Protocol):
     def fetch_emails(self, limit: int = 10) -> List[BaseEmail]:
         """Interface for email fetching logic."""
+
+class DigestAnalyst(Protocol):
+    def generate(self, email_data: str) -> DailyDigest:
+        """Interface for LLM analysis logic."""
