@@ -2,8 +2,10 @@ import os
 import msal
 import requests
 import logging
+import datetime
 from core.schema import BaseEmail
 from core.persistence import TokenStore
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -54,18 +56,45 @@ class OutlookLoader:
         
         return None
 
-    def fetch_emails(self, limit: int = 10) -> list[BaseEmail]:
+    def fetch_emails(self, limit: Optional[int] = None, folder: str = "inbox", date: Optional[datetime.date] = None) -> list[BaseEmail]:
         """Fetches the latest emails from the Graph API."""
         token = self._get_access_token()
         if not token:
             return []
 
         headers = {'Authorization': f'Bearer {token}'}
-        # Graph API Endpoint for the current user's messages
-        endpoint = f"https://graph.microsoft.com/v1.0/me/messages?$top={limit}&$select=subject,from,receivedDateTime,bodyPreview"
+        
+        # Determine endpoint and filtering based on the requested folder
+        base_url = "https://graph.microsoft.com/v1.0/me"
+        if folder == "junk":
+            endpoint = f"{base_url}/mailFolders/junkemail/messages"
+        else:
+            endpoint = f"{base_url}/messages"
+
+        query_params = []
+        filter_conditions = []
+
+        if limit is not None:
+            query_params.append(f"$top={limit}")
+        else:
+            query_params.append(f"$top=999") # Graph API max page size is 100, but we can request more and it will return up to 100.
+        query_params.append("$select=subject,from,receivedDateTime,bodyPreview")
+
+        if folder == "unread":
+            filter_conditions.append("isRead eq false")
+        if date:
+            date_str = date.isoformat() + "T00:00:00Z"
+            next_day = date + datetime.timedelta(days=1)
+            next_day_str = next_day.isoformat() + "T00:00:00Z"
+            filter_conditions.append(f"receivedDateTime ge {date_str} and receivedDateTime lt {next_day_str}")
+
+        if filter_conditions:
+            query_params.append(f"$filter={' and '.join(filter_conditions)}")
+            
+        full_url = f"{endpoint}?{'&'.join(query_params)}"
         
         try:
-            response = requests.get(endpoint, headers=headers, timeout=10)
+            response = requests.get(full_url, headers=headers, timeout=10)
             response.raise_for_status()
             
             emails = []

@@ -1,12 +1,14 @@
 import os
 import base64
 import logging
+import datetime
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from core.schema import BaseEmail
 from core.persistence import TokenStore
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +50,39 @@ class GmailLoader:
         )
         return self._service
 
-    def fetch_emails(self, limit: int = 10) -> list[BaseEmail]:
+    def fetch_emails(self, limit: Optional[int] = None, folder: str = "inbox", date: Optional[datetime.date] = None) -> list[BaseEmail]:
         emails = []
         try:
             service = self._get_service()
-            # Fetch list of message IDs
-            results = service.users().messages().list(userId='me', maxResults=limit).execute()
+            
+            # Map internal folder names to Gmail query syntax
+            query_parts = []
+            if folder == "unread":
+                query_parts.append("is:unread")
+            elif folder == "junk":
+                query_parts.append("in:spam")
+            elif folder == "inbox":
+                query_parts.append("label:inbox")
+            # Add date filtering if provided
+            if date:
+                date_str = date.strftime("%Y/%m/%d")
+                next_day = date + datetime.timedelta(days=1)
+                next_day_str = next_day.strftime("%Y/%m/%d")
+                query_parts.append(f"after:{date_str} before:{next_day_str}")
+            
+            query = " ".join(query_parts) if query_parts else None
+            
+            max_results = limit if limit is not None else 500 # Gmail API maxResults default is 100, max is 500
+
+            # Fetch list of message IDs with query
+            results = service.users().messages().list(userId='me', q=query, maxResults=max_results).execute()
             messages = results.get('messages', [])
 
-            for msg in messages:
+            for msg_id_obj in messages:
+                msg_id = msg_id_obj['id']
                 try:
                     # Get full message details
-                    m = service.users().messages().get(userId='me', id=msg['id']).execute()
+                    m = service.users().messages().get(userId='me', id=msg_id).execute()
                     payload = m.get('payload', {})
                     headers = payload.get('headers', [])
                     
@@ -74,7 +97,7 @@ class GmailLoader:
                         body=m.get('snippet', '')
                     ))
                 except Exception as msg_err:
-                    logger.warning(f"Skipping a Gmail message due to error: {msg_err}")
+                    logger.warning(f"Skipping Gmail message {msg_id} due to error: {msg_err}")
             
         except Exception as e:
             logger.error(f"Failed to fetch Gmail messages: {e}")

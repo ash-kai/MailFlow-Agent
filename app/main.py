@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 load_dotenv()
 
+import datetime
 from loaders.gmail import GmailLoader
 from loaders.outlook import OutlookLoader
 from core.chains import generate_digest
@@ -23,7 +24,7 @@ def run_agent():
     for loader in loaders:
         logger.info(f"📥 Fetching via {loader.__class__.__name__}...")
         try:
-            emails = loader.fetch_emails(limit=5)
+            emails = loader.fetch_emails(limit=None, date=datetime.date.today()) # Fetch all emails for today
             all_emails.extend(emails)
         except Exception as e:
             logger.error(f"❌ Critical error in {loader.__class__.__name__}: {e}")

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import List, Protocol
+from typing import List, Protocol, Optional
+import datetime
 
 class EmailInsight(BaseModel):
     subject: str = Field(..., description="Summarized subject of the email")
@@ -19,7 +20,7 @@ class BaseEmail(BaseModel):
     body: str = Field(..., description="A preview or snippet of the email body")
 
 class EmailLoader(Protocol):
-    def fetch_emails(self, limit: int = 10) -> list[BaseEmail]:
+    def fetch_emails(self, limit: Optional[int] = None, folder: str = "inbox", date: Optional[datetime.date] = None) -> list[BaseEmail]:
         """Interface for email fetching logic."""
         ...
 
