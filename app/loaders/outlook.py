@@ -1,8 +1,11 @@
 import os
 import msal
 import requests
+import logging
 from core.schema import BaseEmail
 from core.persistence import TokenStore
+
+logger = logging.getLogger(__name__)
 
 class OutlookLoader:
     def __init__(self, token_path: str = 'outlook_token.json'):
@@ -37,9 +40,11 @@ class OutlookLoader:
         result = None
 
         if accounts:
+            logger.debug("Attempting silent token acquisition for Outlook...")
             result = app.acquire_token_silent(self.scopes, account=accounts[0])
 
         if not result:
+            logger.info("No Outlook token in cache or silent refresh failed. Starting interactive login...")
             result = app.acquire_token_interactive(scopes=self.scopes, port=0)
 
         if result and "access_token" in result:
@@ -59,19 +64,23 @@ class OutlookLoader:
         # Graph API Endpoint for the current user's messages
         endpoint = f"https://graph.microsoft.com/v1.0/me/messages?$top={limit}&$select=subject,from,receivedDateTime,bodyPreview"
         
-        response = requests.get(endpoint, headers=headers)
-        
-        if response.status_code == 200:
-            raw_data = response.json().get('value', [])
-            return [
-                BaseEmail(
+        try:
+            response = requests.get(endpoint, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            emails = []
+            for e in response.json().get('value', []):
+                # Safe extraction of nested sender name
+                sender_info = e.get('from', {}).get('emailAddress', {})
+                sender_name = sender_info.get('name') or sender_info.get('address', 'Unknown')
+                
+                emails.append(BaseEmail(
                     source="Outlook",
-                    sender=e['from']['emailAddress']['name'],
-                    subject=e['subject'],
+                    sender=sender_name,
+                    subject=e.get('subject', 'No Subject'),
                     body=e.get('bodyPreview', '')
-                ) for e in raw_data
-            ]
-        else:
-            print(f"Error fetching emails: {response.status_code}")
-            print(response.json())
+                ))
+            return emails
+        except Exception as e:
+            logger.error(f"Error fetching Outlook emails: {e}")
             return []

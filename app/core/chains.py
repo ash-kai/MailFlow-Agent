@@ -3,10 +3,18 @@ from langchain_core.prompts import ChatPromptTemplate
 from .schema import DailyDigest, BaseEmail
 import os
 from typing import cast
+import logging
+
+logger = logging.getLogger(__name__)
 
 model_name = os.getenv("GOOGLE_LLM_MODEL", "gemini-3-flash-preview")
 
 def generate_digest(emails: list[BaseEmail]) -> DailyDigest:
+    logger.info(f"Generating digest for {len(emails)} emails using {model_name}")
+    
+    if not emails:
+        return DailyDigest(summary="No emails found to process.", insights=[])
+
     llm = ChatGoogleGenerativeAI(
         model=model_name,
         temperature=0,
@@ -29,5 +37,11 @@ def generate_digest(emails: list[BaseEmail]) -> DailyDigest:
        
     #Run the chain
     chain = prompt | structured_llm
-    response = chain.invoke({"email_data": formatted_data})
-    return cast(DailyDigest, response)
+    
+    try:
+        response = chain.invoke({"email_data": formatted_data})
+        return cast(DailyDigest, response)
+    except Exception as e:
+        logger.error(f"LLM generation failed: {e}")
+        # Return a fallback object so the app doesn't crash
+        return DailyDigest(summary="Error generating summary. Please check logs.", insights=[])
