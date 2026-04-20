@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class GmailLoader:
     SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-    def __init__(self, token_path: str = 'token.json', credentials_path: str = 'credentials.json'):
-        self.store = TokenStore(token_path)
+    def __init__(self, token_store: TokenStore, credentials_path: str = 'credentials.json'):
+        self.store = token_store
         self.credentials_path = credentials_path
         self._service = None
 
@@ -90,11 +90,17 @@ class GmailLoader:
                     subject = next((h['value'] for h in headers if h['name'].lower() == 'subject'), "No Subject")
                     sender = next((h['value'] for h in headers if h['name'].lower() == 'from'), "Unknown")
                     
+                    # Convert internalDate (ms) to datetime object
+                    internal_date = int(m.get('internalDate', 0)) / 1000
+                    received_at = datetime.datetime.fromtimestamp(internal_date, tz=datetime.timezone.utc)
+
                     emails.append(BaseEmail(
+                        message_id=msg_id,
                         source="Gmail",
                         subject=subject,
                         sender=sender,
-                        body=m.get('snippet', '')
+                        body=m.get('snippet', ''),
+                        received_at=received_at
                     ))
                 except Exception as msg_err:
                     logger.warning(f"Skipping Gmail message {msg_id} due to error: {msg_err}")

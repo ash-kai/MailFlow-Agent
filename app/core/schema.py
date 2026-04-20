@@ -14,10 +14,12 @@ class DailyDigest(BaseModel):
     insights: List[EmailInsight] = Field(..., description="A list of insights for the day")
     
 class BaseEmail(BaseModel):
+    message_id: str = Field(..., description="Unique identifier for the email")
     source: str = Field(..., description="Email provider, e.g. Gmail or Outlook")
     sender: str = Field(..., description="Who sent the email")
     subject: str = Field(..., description="The subject line of the email")
     body: str = Field(..., description="A preview or snippet of the email body")
+    received_at: datetime.datetime = Field(..., description="Timestamp of when the email was received")
 
 class EmailLoader(Protocol):
     def fetch_emails(self, limit: Optional[int] = None, folder: str = "inbox", date: Optional[datetime.date] = None) -> list[BaseEmail]:

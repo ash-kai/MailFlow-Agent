@@ -10,13 +10,14 @@ from loaders.gmail import GmailLoader
 from loaders.outlook import OutlookLoader
 from core.chains import generate_digest
 from core.schema import BaseEmail, EmailLoader
+from core.persistence import TokenStore
 from typing import List
 
 def run_agent():
     # We explicitly type hint this list with our Protocol
     loaders: List[EmailLoader] = [
-        GmailLoader(),
-        OutlookLoader()
+        GmailLoader(token_store=TokenStore("MailflowAgent", "Gmail", "gmail_token.json")),
+        OutlookLoader(token_store=TokenStore("MailflowAgent", "Outlook", "outlook_token.json"))
     ]
     
     all_emails: List[BaseEmail] = []

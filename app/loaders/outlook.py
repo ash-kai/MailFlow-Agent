@@ -10,8 +10,8 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 class OutlookLoader:
-    def __init__(self, token_path: str = 'outlook_token.json'):
-        self.store = TokenStore(token_path)
+    def __init__(self, token_store: TokenStore):
+        self.store = token_store
         self.client_id = os.getenv("OUTLOOK_CLIENT_ID")
         self.tenant_id = os.getenv("OUTLOOK_TENANT_ID", "common")
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
@@ -103,11 +103,17 @@ class OutlookLoader:
                 sender_info = e.get('from', {}).get('emailAddress', {})
                 sender_name = sender_info.get('name') or sender_info.get('address', 'Unknown')
                 
+                # Parse ISO timestamp to datetime object
+                received_at_str = e.get('receivedDateTime', '')
+                received_at = datetime.datetime.fromisoformat(received_at_str.replace('Z', '+00:00'))
+
                 emails.append(BaseEmail(
+                    message_id=e.get('id', 'unknown'),
                     source="Outlook",
                     sender=sender_name,
                     subject=e.get('subject', 'No Subject'),
-                    body=e.get('bodyPreview', '')
+                    body=e.get('bodyPreview', ''),
+                    received_at=received_at
                 ))
             return emails
         except Exception as e:
