@@ -11,6 +11,7 @@ class EmailInsight(BaseModel):
     
 class DailyDigest(BaseModel):
     summary: str = Field(..., description="A brief summary of the day's emails")
+    enhanced_summary: str = Field(..., description="A detailed, thematic summary of the day's emails, grouping important threads and categories")
     insights: List[EmailInsight] = Field(..., description="A list of insights for the day")
     
 class BaseEmail(BaseModel):

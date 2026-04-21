@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # This is now a decoupled, reusable prompt template
 DEFAULT_DIGEST_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "You are a highly efficient executive assistant. Your task is to analyze the following list of emails and create a structured daily digest."),
+    ("system", "You are a highly efficient executive assistant. Your task is to analyze the following list of emails. Provide a brief one-sentence summary, an 'enhanced_summary' that provides a thematic and comprehensive breakdown of the day's activity (grouping work, security, personal, and financial threads), and a list of specific insights."),
     ("user", "Here are the emails from the last 24 hours: \n\n {email_data}")
 ])
 
